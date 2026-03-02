@@ -101,8 +101,8 @@ log.info(message: str, payload: dict[str, Any] | None = None, labels: dict[str, 
 `logger(scope)` attaches a `scope` label to every entry, letting you filter by component in Cloud Logging:
 
 ```python
-db = logger("db")
-db.warning("slow query", {"ms": 412, "rows": 5200})
+log = logger("db")
+log.warning("slow query", {"ms": 412, "rows": 5200})
 # GCP entry: labels.scope = "db"
 ```
 

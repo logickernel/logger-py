@@ -104,7 +104,19 @@ SEVERITY_MAP = {
 }
 
 
-def _console_line(emoji: str, message: str, payload: Optional[Dict[str, Any]] = None, scope: Optional[str] = None) -> str:
+# ANSI colors for pretty console (message text only)
+_CONSOLE_RED = "\x1b[31m"
+_CONSOLE_YELLOW = "\x1b[33m"
+_CONSOLE_RESET = "\x1b[0m"
+
+
+def _console_line(
+    emoji: str,
+    message: str,
+    payload: Optional[Dict[str, Any]] = None,
+    scope: Optional[str] = None,
+    message_color: Optional[str] = None,
+) -> str:
     """Format a pretty console log line: '{emoji} {local timestamp} [(scope) ]{message}[\n  {payload}]'"""
     d = datetime.now()
     ts = d.strftime("%Y-%m-%d %H:%M:%S") + "." + str(d.microsecond // 1000).zfill(3)
@@ -115,7 +127,11 @@ def _console_line(emoji: str, message: str, payload: Optional[Dict[str, Any]] = 
         # Indent each line with 4 spaces
         indented_payload = "\n".join("    " + line for line in payload_json.split("\n"))
         suffix = f"\n\x1b[38;5;66m{indented_payload}\x1b[0m"
-    return f"{emoji} \x1b[90m{ts}\x1b[0m  {scope_part}{message}{suffix}"
+    content = f"{scope_part}{message}"
+    ts_color = message_color if message_color else "\x1b[90m"
+    if message_color:
+        content = f"{message_color}{content}{_CONSOLE_RESET}"
+    return f"{emoji} {ts_color}{ts}{_CONSOLE_RESET}  {content}{suffix}"
 
 
 def _console_plain(message: str, payload: Optional[Dict[str, Any]] = None, scope: Optional[str] = None) -> str:
@@ -240,31 +256,31 @@ def logger(scope: Optional[str] = None) -> Logger:
 
             def warning(self, message: str, payload: Optional[Dict[str, Any]] = None, labels: Optional[Dict[str, str]] = None) -> None:
                 if self._pretty:
-                    print(_console_line("🟡", message, payload, self._scope))
+                    print(_console_line("🟡", message, payload, self._scope, message_color=_CONSOLE_YELLOW))
                 else:
                     print(_console_plain(message, payload, self._scope))
 
             def error(self, message: str, payload: Optional[Dict[str, Any]] = None, labels: Optional[Dict[str, str]] = None) -> None:
                 if self._pretty:
-                    print(_console_line("🔴", message, payload, self._scope))
+                    print(_console_line("🔴", message, payload, self._scope, message_color=_CONSOLE_RED))
                 else:
                     print(_console_plain(message, payload, self._scope))
 
             def critical(self, message: str, payload: Optional[Dict[str, Any]] = None, labels: Optional[Dict[str, str]] = None) -> None:
                 if self._pretty:
-                    print(_console_line("⛔️", message, payload, self._scope))
+                    print(_console_line("⛔️", message, payload, self._scope, message_color=_CONSOLE_RED))
                 else:
                     print(_console_plain(message, payload, self._scope))
 
             def alert(self, message: str, payload: Optional[Dict[str, Any]] = None, labels: Optional[Dict[str, str]] = None) -> None:
                 if self._pretty:
-                    print(_console_line("❗️", message, payload, self._scope))
+                    print(_console_line("❗️", message, payload, self._scope, message_color=_CONSOLE_RED))
                 else:
                     print(_console_plain(message, payload, self._scope))
 
             def emergency(self, message: str, payload: Optional[Dict[str, Any]] = None, labels: Optional[Dict[str, str]] = None) -> None:
                 if self._pretty:
-                    print(_console_line("🚨", message, payload, self._scope))
+                    print(_console_line("🚨", message, payload, self._scope, message_color=_CONSOLE_RED))
                 else:
                     print(_console_plain(message, payload, self._scope))
 
