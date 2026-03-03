@@ -179,7 +179,7 @@ class TestGcpBackendIntegration:
         log = logger.logger()
         test_id = f"it-json-{int(time.time() * 1000)}"
         message = f"json payload smoke [{test_id}]"
-        log.info(message, {"requestId": "req-001", "userId": "usr-42"})
+        log.info(message, None, {"requestId": "req-001", "userId": "usr-42"})
         
         entry = poll_for_entry(test_id, "INFO")
         assert entry is not None, "no INFO entry arrived within timeout"

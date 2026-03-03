@@ -37,8 +37,9 @@ def apply_env(overrides: Dict[str, Optional[str]]) -> None:
             os.environ[k] = v
 
 
-def fresh_logger(scope: Optional[str] = None):
-    """Get a fresh logger instance by reloading the module."""
+def fresh_logger(scope: Optional[str] = None, gcp_logger_override=None):
+    """Get a fresh logger instance by reloading the module.
+    If gcp_logger_override is set, use it as the GCP backend (for tests that mock GCP)."""
     # Remove the module from cache to force reload
     import sys
     module_name = "logger"
@@ -59,6 +60,8 @@ def fresh_logger(scope: Optional[str] = None):
     
     import logger
     importlib.reload(logger)
+    if gcp_logger_override is not None:
+        logger.gcp_logger = gcp_logger_override
     return logger.logger(scope)
 
 
@@ -182,7 +185,7 @@ class TestConsoleBackend:
     def test_debug_shows_payload_on_new_indented_line(self, mock_print):
         """Test debug shows payload on new indented line."""
         log = fresh_logger()
-        log.debug("user logged in", {"userId": "123", "action": "login"})
+        log.debug("user logged in", None, {"userId": "123", "action": "login"})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "user logged in" in call_args
@@ -195,7 +198,7 @@ class TestConsoleBackend:
     def test_info_shows_payload_on_new_indented_line(self, mock_print):
         """Test info shows payload on new indented line."""
         log = fresh_logger()
-        log.info("request handled", {"method": "GET", "status": 200})
+        log.info("request handled", None, {"method": "GET", "status": 200})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "request handled" in call_args
@@ -206,12 +209,23 @@ class TestConsoleBackend:
     def test_error_shows_payload_on_new_indented_line(self, mock_print):
         """Test error shows payload on new indented line."""
         log = fresh_logger()
-        log.error("request failed", {"method": "POST", "status": 500})
+        log.error("request failed", None, {"method": "POST", "status": 500})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "request failed" in call_args
         assert '"method": "POST"' in call_args
         assert '"status": 500' in call_args
+
+    @patch("builtins.print")
+    def test_event_shown_in_brackets_in_pretty_mode(self, mock_print):
+        """Test event appears as [event] in pretty console output."""
+        log = fresh_logger("api")
+        log.info("user logged in", "user_login", {"userId": "u-42"})
+        mock_print.assert_called_once()
+        call_args = mock_print.call_args[0][0]
+        assert "[user_login]" in call_args
+        assert "(api)" in call_args
+        assert "user logged in" in call_args
 
     @patch("builtins.print")
     def test_defaults_to_plain_format_when_not_set(self, mock_print):
@@ -234,11 +248,11 @@ class TestConsoleBackend:
             "LOGGER_CONSOLE_FORMAT": "plain",
         })
         log = fresh_logger()
-        log.info("test message", {"key": "value"})
+        log.info("test message", None, {"key": "value"})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "test message" in call_args
-        assert '"key": "value"' in call_args
+        assert "key" in call_args and "value" in call_args
         # Should not have emoji
         assert "⚪️" not in call_args
 
@@ -274,16 +288,10 @@ class TestMultiBackend:
         restore_env(cls.original_env)
 
     @patch("builtins.print")
-    @patch("google.cloud.logging.Client")
-    def test_writes_to_both_gcp_and_console_on_info(self, mock_client_class, mock_print):
+    def test_writes_to_both_gcp_and_console_on_info(self, mock_print):
         """Test writes to both GCP and console on info."""
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.info("dual write")
 
         # Check console was called
@@ -292,16 +300,10 @@ class TestMultiBackend:
         assert mock_logger.log_struct.called
 
     @patch("builtins.print")
-    @patch("google.cloud.logging.Client")
-    def test_writes_to_both_gcp_and_console_on_error(self, mock_client_class, mock_print):
+    def test_writes_to_both_gcp_and_console_on_error(self, mock_print):
         """Test writes to both GCP and console on error."""
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.error("something broke")
 
         # Check console was called
@@ -310,18 +312,11 @@ class TestMultiBackend:
         assert mock_logger.log_struct.called
 
     @patch("builtins.print")
-    @patch("google.cloud.logging.Client")
-    def test_order_in_logger_target_does_not_matter(self, mock_client_class, mock_print):
+    def test_order_in_logger_target_does_not_matter(self, mock_print):
         """Test order in LOGGER_TARGET does not matter (console,gcp)."""
         apply_env({"LOGGER_TARGET": "console,gcp"})
-        
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.warning("order check")
 
         # Check console was called
@@ -360,20 +355,13 @@ class TestGcpBackendLabels:
         """Restore original environment."""
         restore_env(cls.original_env)
 
-    @patch("google.cloud.logging.Client")
-    def test_attaches_all_labels_when_env_vars_set(self, mock_client_class):
+    def test_attaches_all_labels_when_env_vars_set(self):
         """Test attaches all labels when ENVIRONMENT, SERVICE, and VERSION are set."""
         os.environ["ENVIRONMENT"] = "production"
         os.environ["SERVICE"] = "my-service"
         os.environ["VERSION"] = "1.2.3"
-
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.info("hello")
 
         # Check that log_struct was called with correct labels
@@ -389,18 +377,11 @@ class TestGcpBackendLabels:
         os.environ.pop("SERVICE", None)
         os.environ.pop("VERSION", None)
 
-    @patch("google.cloud.logging.Client")
-    def test_attaches_only_present_labels(self, mock_client_class):
+    def test_attaches_only_present_labels(self):
         """Test attaches only present labels when some vars are unset."""
         os.environ["SERVICE"] = "my-service"
-
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.info("hello")
 
         # Check that log_struct was called with correct labels
@@ -414,16 +395,10 @@ class TestGcpBackendLabels:
         # Cleanup
         os.environ.pop("SERVICE", None)
 
-    @patch("google.cloud.logging.Client")
-    def test_omits_labels_when_no_label_vars_set(self, mock_client_class):
+    def test_omits_labels_when_no_label_vars_set(self):
         """Test omits labels entirely when no label vars are set."""
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
+        log = fresh_logger(gcp_logger_override=mock_logger)
         log.info("hello")
 
         # Check that log_struct was called
@@ -433,16 +408,22 @@ class TestGcpBackendLabels:
         # Labels should be None or empty when no env vars are set
         assert labels is None or labels == {}
 
-    @patch("google.cloud.logging.Client")
-    def test_attaches_scope_label_from_factory_argument(self, mock_client_class):
-        """Test attaches scope label from factory argument."""
-        # Mock GCP logger
+    def test_attaches_event_as_label_when_provided(self):
+        """Test event string is attached as labels.event in GCP."""
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
+        log = fresh_logger("payments", gcp_logger_override=mock_logger)
+        log.info("charge processed", "charge_processed", {"amount": 99.95})
 
-        log = fresh_logger("my-scope")
+        assert mock_logger.log_struct.called
+        call_kwargs = mock_logger.log_struct.call_args[1]
+        labels = call_kwargs.get("labels", {})
+        assert labels.get("scope") == "payments"
+        assert labels.get("event") == "charge_processed"
+
+    def test_attaches_scope_label_from_factory_argument(self):
+        """Test attaches scope label from factory argument."""
+        mock_logger = MagicMock()
+        log = fresh_logger("my-scope", gcp_logger_override=mock_logger)
         log.info("hello")
 
         # Check that log_struct was called with scope label
@@ -451,17 +432,11 @@ class TestGcpBackendLabels:
         labels = call_kwargs.get("labels", {})
         assert labels.get("scope") == "my-scope"
 
-    @patch("google.cloud.logging.Client")
-    def test_attaches_per_call_labels(self, mock_client_class):
-        """Test attaches per-call labels from third argument."""
-        # Mock GCP logger
+    def test_attaches_per_call_labels(self):
+        """Test attaches per-call labels from fourth argument."""
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger()
-        log.info("hello", None, {"requestId": "req-1"})
+        log = fresh_logger(gcp_logger_override=mock_logger)
+        log.info("hello", None, None, {"requestId": "req-1"})
 
         # Check that log_struct was called with per-call labels
         assert mock_logger.log_struct.called
@@ -469,17 +444,11 @@ class TestGcpBackendLabels:
         labels = call_kwargs.get("labels", {})
         assert labels.get("requestId") == "req-1"
 
-    @patch("google.cloud.logging.Client")
-    def test_merges_scope_and_per_call_labels(self, mock_client_class):
+    def test_merges_scope_and_per_call_labels(self):
         """Test merges scope and per-call labels."""
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger("api")
-        log.info("hello", None, {"traceId": "t-1"})
+        log = fresh_logger("api", gcp_logger_override=mock_logger)
+        log.info("hello", None, None, {"traceId": "t-1"})
 
         # Check that log_struct was called with merged labels
         assert mock_logger.log_struct.called
@@ -488,19 +457,12 @@ class TestGcpBackendLabels:
         assert labels.get("scope") == "api"
         assert labels.get("traceId") == "t-1"
 
-    @patch("google.cloud.logging.Client")
-    def test_merges_env_labels_scope_and_per_call_labels(self, mock_client_class):
+    def test_merges_env_labels_scope_and_per_call_labels(self):
         """Test merges env labels, scope, and per-call labels."""
         os.environ["ENVIRONMENT"] = "staging"
-
-        # Mock GCP logger
         mock_logger = MagicMock()
-        mock_client = MagicMock()
-        mock_client.logger.return_value = mock_logger
-        mock_client_class.return_value = mock_client
-
-        log = fresh_logger("worker")
-        log.info("hello", None, {"jobId": "j-99"})
+        log = fresh_logger("worker", gcp_logger_override=mock_logger)
+        log.info("hello", None, None, {"jobId": "j-99"})
 
         # Check that log_struct was called with all merged labels
         assert mock_logger.log_struct.called
