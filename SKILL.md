@@ -4,6 +4,26 @@ Authoritative reference for implementing and modifying `src/logger/__init__.py` 
 
 ---
 
+## Repository & installation
+
+**Source**: https://github.com/logickernel/logger-py
+
+**Install for users:**
+```bash
+pip install git+https://github.com/logickernel/logger-py.git
+```
+
+**Install for development** (clone first, then editable install with dev extras):
+```bash
+git clone https://github.com/logickernel/logger-py.git
+cd logger-py
+pip install -e ".[dev]"
+```
+
+The installed package name is `logickernel-logger`; the importable module name is `logger`.
+
+---
+
 ## File layout
 
 ```
@@ -17,6 +37,7 @@ tests/test_logger_integration.py  # integration tests (real GCP, skipped locally
 ## Public API
 
 ```python
+# install: pip install git+https://github.com/logickernel/logger-py.git
 from logger import logger, Logger
 
 log: Logger = logger("scope")   # scope is optional

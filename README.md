@@ -37,10 +37,10 @@ log.warning("disk nearing capacity", {"usedPct": 92, "mount": "/data"})
 
 ## 2. Installation & Usage
 
-### Install from PyPI
+### Install
 
 ```bash
-pip install logickernel-logger
+pip install git+https://github.com/logickernel/logger-py.git
 ```
 
 ### Basic usage
@@ -308,6 +308,6 @@ mypy src/
 
 ## 5. Additional Resources
 
-- **Package**: `logickernel-logger` on PyPI.
+- **Repository**: [github.com/logickernel/logger-py](https://github.com/logickernel/logger-py)
 - **License**: MIT (see `LICENSE` in this repository).
 - **Contributions**: Feel free to open issues or pull requests if you'd like improvements (extra transports, richer metadata, etc.).
