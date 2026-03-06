@@ -50,14 +50,14 @@ def fresh_logger(scope: Optional[str] = None, gcp_logger_override=None):
         del sys.modules["src.logger"]
     if "src" in sys.modules:
         del sys.modules["src"]
-    
+
     # Import and reload the module
     # Add src to path if not already there
     import os
     src_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
-    
+
     import logger
     importlib.reload(logger)
     if gcp_logger_override is not None:
@@ -185,7 +185,7 @@ class TestConsoleBackend:
     def test_debug_shows_payload_on_new_indented_line(self, mock_print):
         """Test debug shows payload on new indented line."""
         log = fresh_logger()
-        log.debug("user logged in", None, {"userId": "123", "action": "login"})
+        log.debug("user logged in", {"userId": "123", "action": "login"})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "user logged in" in call_args
@@ -198,7 +198,7 @@ class TestConsoleBackend:
     def test_info_shows_payload_on_new_indented_line(self, mock_print):
         """Test info shows payload on new indented line."""
         log = fresh_logger()
-        log.info("request handled", None, {"method": "GET", "status": 200})
+        log.info("request handled", {"method": "GET", "status": 200})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "request handled" in call_args
@@ -209,7 +209,7 @@ class TestConsoleBackend:
     def test_error_shows_payload_on_new_indented_line(self, mock_print):
         """Test error shows payload on new indented line."""
         log = fresh_logger()
-        log.error("request failed", None, {"method": "POST", "status": 500})
+        log.error("request failed", {"method": "POST", "status": 500})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "request failed" in call_args
@@ -217,19 +217,18 @@ class TestConsoleBackend:
         assert '"status": 500' in call_args
 
     @patch("builtins.print")
-    def test_event_shown_in_brackets_in_pretty_mode(self, mock_print):
-        """Test event appears as [event] in pretty console output."""
+    def test_scope_shown_in_parens_in_pretty_mode(self, mock_print):
+        """Test scope appears as (scope) in pretty console output."""
         log = fresh_logger("api")
-        log.info("user logged in", "user_login", {"userId": "u-42"})
+        log.info("user logged in", {"userId": "u-42"})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
-        assert "[user_login]" in call_args
         assert "(api)" in call_args
         assert "user logged in" in call_args
 
     @patch("builtins.print")
-    def test_defaults_to_plain_format_when_not_set(self, mock_print):
-        """Test defaults to plain format when LOGGER_CONSOLE_FORMAT is not set."""
+    def test_defaults_to_pretty_format_when_not_set(self, mock_print):
+        """Test defaults to pretty format when LOGGER_CONSOLE_FORMAT is not set."""
         apply_env({
             "GCP_PROJECT": None,
             "LOGGER_TARGET": "console",
@@ -237,18 +236,22 @@ class TestConsoleBackend:
         })
         log = fresh_logger()
         log.info("test message")
-        mock_print.assert_called_once_with("test message")
+        mock_print.assert_called_once()
+        call_args = mock_print.call_args[0][0]
+        # Default is pretty — should have emoji and timestamp
+        assert "⚪️" in call_args
+        assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}", call_args)
 
     @patch("builtins.print")
-    def test_uses_plain_format_when_not_pretty(self, mock_print):
-        """Test uses plain format when LOGGER_CONSOLE_FORMAT is not 'pretty'."""
+    def test_uses_plain_format_when_set_to_plain(self, mock_print):
+        """Test uses plain format when LOGGER_CONSOLE_FORMAT is 'plain'."""
         apply_env({
             "GCP_PROJECT": None,
             "LOGGER_TARGET": "console",
             "LOGGER_CONSOLE_FORMAT": "plain",
         })
         log = fresh_logger()
-        log.info("test message", None, {"key": "value"})
+        log.info("test message", {"key": "value"})
         mock_print.assert_called_once()
         call_args = mock_print.call_args[0][0]
         assert "test message" in call_args
@@ -408,18 +411,6 @@ class TestGcpBackendLabels:
         # Labels should be None or empty when no env vars are set
         assert labels is None or labels == {}
 
-    def test_attaches_event_as_label_when_provided(self):
-        """Test event string is attached as labels.event in GCP."""
-        mock_logger = MagicMock()
-        log = fresh_logger("payments", gcp_logger_override=mock_logger)
-        log.info("charge processed", "charge_processed", {"amount": 99.95})
-
-        assert mock_logger.log_struct.called
-        call_kwargs = mock_logger.log_struct.call_args[1]
-        labels = call_kwargs.get("labels", {})
-        assert labels.get("scope") == "payments"
-        assert labels.get("event") == "charge_processed"
-
     def test_attaches_scope_label_from_factory_argument(self):
         """Test attaches scope label from factory argument."""
         mock_logger = MagicMock()
@@ -433,10 +424,10 @@ class TestGcpBackendLabels:
         assert labels.get("scope") == "my-scope"
 
     def test_attaches_per_call_labels(self):
-        """Test attaches per-call labels from fourth argument."""
+        """Test attaches per-call labels from third argument."""
         mock_logger = MagicMock()
         log = fresh_logger(gcp_logger_override=mock_logger)
-        log.info("hello", None, None, {"requestId": "req-1"})
+        log.info("hello", None, {"requestId": "req-1"})
 
         # Check that log_struct was called with per-call labels
         assert mock_logger.log_struct.called
@@ -448,7 +439,7 @@ class TestGcpBackendLabels:
         """Test merges scope and per-call labels."""
         mock_logger = MagicMock()
         log = fresh_logger("api", gcp_logger_override=mock_logger)
-        log.info("hello", None, None, {"traceId": "t-1"})
+        log.info("hello", None, {"traceId": "t-1"})
 
         # Check that log_struct was called with merged labels
         assert mock_logger.log_struct.called
@@ -462,7 +453,7 @@ class TestGcpBackendLabels:
         os.environ["ENVIRONMENT"] = "staging"
         mock_logger = MagicMock()
         log = fresh_logger("worker", gcp_logger_override=mock_logger)
-        log.info("hello", None, None, {"jobId": "j-99"})
+        log.info("hello", None, {"jobId": "j-99"})
 
         # Check that log_struct was called with all merged labels
         assert mock_logger.log_struct.called
