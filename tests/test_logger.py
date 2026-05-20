@@ -10,7 +10,7 @@ import pytest
 
 # Type for environment keys
 EnvKey = str
-ENV_KEYS = ["GCP_PROJECT", "LOGGER_TARGET", "LOGGER_CONSOLE_FORMAT", "ENVIRONMENT", "SERVICE", "VERSION"]
+ENV_KEYS = ["GOOGLE_CLOUD_PROJECT", "LOGGER_TARGET", "LOGGER_CONSOLE_FORMAT", "ENVIRONMENT", "SERVICE", "VERSION"]
 
 
 def snapshot_env() -> Dict[EnvKey, Optional[str]]:
@@ -78,7 +78,7 @@ class TestConsoleBackend:
     def setup_method(self):
         """Set up test environment."""
         apply_env({
-            "GCP_PROJECT": None,
+            "GOOGLE_CLOUD_PROJECT": None,
             "LOGGER_TARGET": "console",
             "LOGGER_CONSOLE_FORMAT": "pretty",
         })
@@ -230,7 +230,7 @@ class TestConsoleBackend:
     def test_defaults_to_pretty_format_when_not_set(self, mock_print):
         """Test defaults to pretty format when LOGGER_CONSOLE_FORMAT is not set."""
         apply_env({
-            "GCP_PROJECT": None,
+            "GOOGLE_CLOUD_PROJECT": None,
             "LOGGER_TARGET": "console",
             "LOGGER_CONSOLE_FORMAT": None,
         })
@@ -246,7 +246,7 @@ class TestConsoleBackend:
     def test_uses_plain_format_when_set_to_plain(self, mock_print):
         """Test uses plain format when LOGGER_CONSOLE_FORMAT is 'plain'."""
         apply_env({
-            "GCP_PROJECT": None,
+            "GOOGLE_CLOUD_PROJECT": None,
             "LOGGER_TARGET": "console",
             "LOGGER_CONSOLE_FORMAT": "plain",
         })
@@ -273,7 +273,7 @@ class TestMultiBackend:
     def setup_method(self):
         """Set up test environment with mocked GCP."""
         apply_env({
-            "GCP_PROJECT": "test-project",
+            "GOOGLE_CLOUD_PROJECT": "test-project",
             "LOGGER_TARGET": "gcp,console",
             "LOGGER_CONSOLE_FORMAT": None,
             "ENVIRONMENT": None,
@@ -341,7 +341,7 @@ class TestGcpBackendLabels:
     def setup_method(self):
         """Set up test environment with mocked GCP."""
         apply_env({
-            "GCP_PROJECT": "test-project",
+            "GOOGLE_CLOUD_PROJECT": "test-project",
             "LOGGER_TARGET": None,
             "LOGGER_CONSOLE_FORMAT": None,
             "ENVIRONMENT": None,

@@ -63,9 +63,9 @@ class TestGcpBackendIntegration:
     def setup_class(cls):
         """Save and set up environment for GCP tests."""
         cls.saved_env = {}
-        for k in ["GCP_PROJECT", "LOGGER_NAME", "LOGGER_TARGET"]:
+        for k in ["GOOGLE_CLOUD_PROJECT", "LOGGER_NAME", "LOGGER_TARGET"]:
             cls.saved_env[k] = os.environ.get(k)
-        os.environ["GCP_PROJECT"] = PROJECT
+        os.environ["GOOGLE_CLOUD_PROJECT"] = PROJECT
         os.environ["LOGGER_NAME"] = LOG_NAME
         os.environ["LOGGER_TARGET"] = "gcp"
 
@@ -199,9 +199,9 @@ class TestGcpBackendIntegrationLabels:
     def setup_class(cls):
         """Save and set up environment for GCP tests."""
         cls.saved_env = {}
-        for k in ["GCP_PROJECT", "LOGGER_NAME", "LOGGER_TARGET", "ENVIRONMENT", "SERVICE", "VERSION"]:
+        for k in ["GOOGLE_CLOUD_PROJECT", "LOGGER_NAME", "LOGGER_TARGET", "ENVIRONMENT", "SERVICE", "VERSION"]:
             cls.saved_env[k] = os.environ.get(k)
-        os.environ["GCP_PROJECT"] = PROJECT
+        os.environ["GOOGLE_CLOUD_PROJECT"] = PROJECT
         os.environ["LOGGER_NAME"] = LOG_NAME
         os.environ["LOGGER_TARGET"] = "gcp"
 

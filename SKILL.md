@@ -87,8 +87,8 @@ raw_targets = os.environ.get("LOGGER_TARGET")
 targets = {t.strip().lower() for t in raw_targets.split(",") if t.strip()} if raw_targets else None
 
 # 2. Backend flags
-USE_GCP     = ("gcp"     in targets) if targets else bool(os.environ.get("GCP_PROJECT"))
-USE_CONSOLE = ("console" in targets) if targets else not bool(os.environ.get("GCP_PROJECT"))
+USE_GCP     = ("gcp"     in targets) if targets else bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
+USE_CONSOLE = ("console" in targets) if targets else not bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
 
 # 3. Console format — pretty is DEFAULT; plain only when explicitly set
 CONSOLE_PRETTY = os.environ.get("LOGGER_CONSOLE_FORMAT", "").lower() != "plain"
@@ -108,7 +108,7 @@ gcp_logger = None   # google.cloud.logging Logger instance, or None
 ```python
 if USE_GCP and GCP_AVAILABLE:
     try:
-        project_id = os.environ.get("GCP_PROJECT")
+        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
         if project_id:
             log_name = os.environ.get("LOGGER_NAME") or os.environ.get("K_SERVICE") or "local"
             client = cloud_logging.Client(project=project_id)
@@ -222,7 +222,7 @@ The `Logger` class is a `Protocol` at module level for type-checking only.
 
 | Variable | Effect |
 |---|---|
-| `GCP_PROJECT` | Enables GCP backend; used as project ID for Cloud Logging client |
+| `GOOGLE_CLOUD_PROJECT` | Enables GCP backend; used as project ID for Cloud Logging client |
 | `LOGGER_TARGET` | Comma-separated override: `"gcp"`, `"console"`, `"gcp,console"` |
 | `LOGGER_NAME` | Log name in Cloud Logging. Falls back to `K_SERVICE`, then `"local"` |
 | `K_SERVICE` | Fallback log name (set automatically by Cloud Run) |

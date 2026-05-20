@@ -26,7 +26,7 @@ log.warning("disk nearing capacity", {"usedPct": 92, "mount": "/data"})
 
 **Key features**
 
-- **Zero config in GCP**: Uses `LOGGER_NAME` / `K_SERVICE` and `GCP_PROJECT` from the environment.
+- **Zero config in GCP**: Uses `LOGGER_NAME` / `K_SERVICE` and `GOOGLE_CLOUD_PROJECT` from the environment.
 - **Auto backend selection**: GCP vs console decided once at module load; override with `LOGGER_TARGET`.
 - **Multi-backend**: `LOGGER_TARGET` accepts a comma-separated list — `"gcp,console"` writes to both simultaneously.
 - **Full severity ladder**: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`.
@@ -73,7 +73,7 @@ payments_log.warning("card declined by issuing bank", {"code": "card_declined"})
 
 `logger(scope=None)` returns a `Logger` instance. Call it once per module or service boundary. The backend (GCP or console) is chosen once at module load:
 
-- **GCP backend** is used when `GCP_PROJECT` is set.
+- **GCP backend** is used when `GOOGLE_CLOUD_PROJECT` is set.
 - Otherwise, the **console backend** is used.
 
 If GCP is selected but the Cloud Logging client fails to initialize (e.g. missing or invalid credentials), the logger falls back to the console backend so your app keeps logging.
@@ -148,11 +148,11 @@ Scope (if set) appears in parentheses before the message. Payload (if any) is pr
 - **`LOGGER_NAME`**
   Log name in Google Cloud Logging. This is a very important attribute that is the primary group in reports — logs are usually grouped by system instance/environment so entries stay together. Falls back to `K_SERVICE`, then `"local"`.
 
-- **`GCP_PROJECT`**
-  Project ID for Google Cloud Logging. When set (and `LOGGER_TARGET` isn't forcing console), the GCP backend is used.
+- **`GOOGLE_CLOUD_PROJECT`**
+  Project ID for Google Cloud Logging. When set (and `LOGGER_TARGET` isn't forcing console), the GCP backend is used. This is the canonical Google-side variable — Cloud Run sets it automatically, and Application Default Credentials and every official client library look for it.
 
 - **`LOGGER_TARGET`**
-  Comma-separated list of backends to activate: `"gcp"`, `"console"`, or `"gcp,console"` for both simultaneously. When unset, GCP is used if `GCP_PROJECT` is set, otherwise console.
+  Comma-separated list of backends to activate: `"gcp"`, `"console"`, or `"gcp,console"` for both simultaneously. When unset, GCP is used if `GOOGLE_CLOUD_PROJECT` is set, otherwise console.
 
 - **`LOGGER_CONSOLE_FORMAT`**
   Controls the console output format. Defaults to `pretty` — emoji + timestamp lines that emulate GCP's log viewer. Set to `"plain"` to disable formatting and print bare `message [{payload}]` lines instead.
@@ -297,7 +297,7 @@ pytest
 # Run unit tests only
 pytest tests/test_logger.py
 
-# Run integration tests (requires GCP_PROJECT set)
+# Run integration tests (requires GOOGLE_CLOUD_PROJECT set)
 pytest tests/test_logger_integration.py
 
 # Type-check

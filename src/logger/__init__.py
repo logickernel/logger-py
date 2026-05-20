@@ -55,8 +55,8 @@ targets = None
 if raw_targets:
     targets = {t.strip().lower() for t in raw_targets.split(",") if t.strip()}
 
-USE_GCP = ("gcp" in targets) if targets else bool(os.environ.get("GCP_PROJECT"))
-USE_CONSOLE = ("console" in targets) if targets else not bool(os.environ.get("GCP_PROJECT"))
+USE_GCP = ("gcp" in targets) if targets else bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
+USE_CONSOLE = ("console" in targets) if targets else not bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
 CONSOLE_PRETTY = os.environ.get("LOGGER_CONSOLE_FORMAT", "").lower() != "plain"
 
 
@@ -80,7 +80,7 @@ gcp_log_name = None
 
 if USE_GCP and GCP_AVAILABLE:
     try:
-        project_id = os.environ.get("GCP_PROJECT")
+        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
         if project_id:
             log_name = os.environ.get("LOGGER_NAME") or os.environ.get("K_SERVICE") or "local"
             client = cloud_logging.Client(project=project_id)
