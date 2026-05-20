@@ -1,0 +1,12 @@
+agileflow:
+  image: us-central1-docker.pkg.dev/logickernel-fleet/registry/node:20-slim
+  variables:
+    GIT_DEPTH: 0
+  before_script:
+    - apt-get update -qq && apt-get install -qq -y git > /dev/null
+  script:
+    - npm install -g --prefer-online @logickernel/agileflow
+    - agileflow version
+    - agileflow gitlab
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
